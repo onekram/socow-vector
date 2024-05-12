@@ -25,37 +25,26 @@ jobs:
 
   test:
     needs: formatting-check
-    name: "Test (${{ matrix.toolchain.name }}, ${{ matrix.build_type }})"
+    name: Test (${{ matrix.toolchain.name }}, ${{ matrix.build_type }})
 
     timeout-minutes: 30
 
     strategy:
-      fail-fast: false
       matrix:
         toolchain:
           - { name: Linux/GCC,   os: ubuntu-22.04, compiler: gcc-13 }
           - { name: Linux/Clang, os: ubuntu-22.04, compiler: clang-18 }
-          - { name: macOS,       os: macos-13,     compiler: appleclang-18 }
-          - { name: macOS M1,    os: macos-14,     compiler: appleclang-18 }
-          - { name: Windows,     os: windows-2022, compiler: msvc-2022 }
         build_type:
           - Release
           - Debug
           - RelWithDebInfo
           - Sanitized
           - SanitizedDebug
-          # - ThreadSanitized
-        exclude:
-          # Valgrind is only supported by Linux container
-          - toolchain: { name: macOS }
-            build_type: RelWithDebInfo
-          - toolchain: { name: macOS M1 }
-            build_type: RelWithDebInfo
-          - toolchain: { name: Windows }
-            build_type: RelWithDebInfo
-          # TSAN is only supported by GCC and Clang
-          - toolchain: { name: Windows }
-            build_type: ThreadSanitized
+        include:
+          - toolchain: { name: macOS,  os: macos-13, compiler: appleclang-18 }
+            build_type: SanitizedDebug
+          - toolchain: { name: Windows, os: windows-2022, compiler: msvc-2022 }
+            build_type: SanitizedDebug
 
     runs-on: ${{ matrix.toolchain.os }}
 
@@ -126,3 +115,39 @@ jobs:
       - name: Run tests with valgrind
         if: ${{ matrix.build_type == 'RelWithDebInfo' }}
         run: ci-extra/test-valgrind.sh ${{ matrix.build_type }}
+
+  hidden-tests:
+    name: Hidden tests
+    needs: formatting-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Request test run
+        run: |
+          curl -sf "http://${{ secrets.RUNNER_SERVER_ADDR }}/request_run" \
+            -X POST \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "gh_token": "${{ secrets.GITHUB_TOKEN }}",
+              "run_id": ${{ github.run_id }},
+              "pull_request": ${{ github.event.number }}
+            }'
+      - name: Awaiting results
+        run: |
+          while true; do
+            json=$(curl -sf "${{ secrets.RUNNER_SERVER_ADDR }}/poll_run" \
+              -X POST \
+              -H 'Content-Type: application/json' \
+              -d '{"gh_token": "${{ secrets.GITHUB_TOKEN }}"}')
+            if [[ $(jq '.done' <<<"$json") = true ]]; then
+              break
+            else
+              echo "$(jq -r '.status' <<<"$json")"
+              sleep 30
+            fi
+          done
+          echo "$(jq -r '.report' <<<"$json")"
+          echo "$(jq -r '.report' <<<"$json")" >> $GITHUB_STEP_SUMMARY
+          if [[ $(jq '.success' <<<"$json") = false ]]; then
+            exit 1
+          fi
