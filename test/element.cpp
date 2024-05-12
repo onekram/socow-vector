@@ -103,14 +103,3 @@ element::no_new_intances_guard::~no_new_intances_guard() noexcept(false) {
 bool element::no_new_intances_guard::check_no_new_instances() const noexcept {
   return old_instances == instances;
 }
-
-void swap(element& lhs, element& rhs) noexcept {
-  lhs.assert_exists();
-  rhs.assert_exists();
-  std::swap(lhs.value, rhs.value);
-}
-
-template <>
-void std::swap(element& lhs, element& rhs) {
-  swap(lhs, rhs);
-}

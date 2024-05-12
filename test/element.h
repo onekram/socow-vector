@@ -15,8 +15,6 @@ struct element {
   element& operator=(const element& other);
   element& operator=(element&& other) noexcept;
 
-  friend void swap(element& lhs, element& rhs) noexcept;
-
   friend bool operator==(const element& lhs, const element& rhs);
   friend bool operator!=(const element& lhs, const element& rhs);
 
@@ -46,6 +44,3 @@ struct element::no_new_intances_guard {
 private:
   std::set<const element*> old_instances;
 };
-
-template <>
-void std::swap(element& left, element& right);
