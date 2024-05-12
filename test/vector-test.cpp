@@ -408,7 +408,7 @@ TEST_CASE("Alignment") {
 
   socow_vector<fat_element, 3> a;
   for (std::size_t i = 0; i < N; ++i) {
-    a.push_back(fat_element(2 * i + 1));
+    a.push_back(fat_element{static_cast<int>(2 * i + 1)});
   }
 
   REQUIRE(reinterpret_cast<std::uintptr_t>(std::as_const(a).data()) % alignof(std::max_align_t) == 0);
