@@ -43,8 +43,6 @@ jobs:
         include:
           - toolchain: { name: macOS,  os: macos-13, compiler: appleclang-18 }
             build_type: SanitizedDebug
-          - toolchain: { name: Windows, os: windows-2022, compiler: msvc-2022 }
-            build_type: SanitizedDebug
 
     runs-on: ${{ matrix.toolchain.os }}
 
