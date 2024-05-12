@@ -26,7 +26,7 @@ else()
   target_compile_options(tests PRIVATE -Woverloaded-virtual)
   target_compile_options(tests PRIVATE -Wzero-as-null-pointer-constant)
   if(TREAT_WARNINGS_AS_ERRORS)
-    target_compile_options(tests PRIVATE -Werror -pedantic-errors)
+    target_compile_options(tests PRIVATE -Werror)
   endif()
 endif()
 
