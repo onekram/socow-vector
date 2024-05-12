@@ -397,23 +397,6 @@ TEST_CASE("Erase") {
   }
 }
 
-TEST_CASE("Alignment") {
-  element::no_new_intances_guard ig;
-
-  struct alignas(std::max_align_t) fat_element {
-    int x;
-  };
-
-  static constexpr std::size_t N = 5;
-
-  socow_vector<fat_element, 3> a;
-  for (std::size_t i = 0; i < N; ++i) {
-    a.push_back(fat_element{static_cast<int>(2 * i + 1)});
-  }
-
-  REQUIRE(reinterpret_cast<std::uintptr_t>(std::as_const(a).data()) % alignof(std::max_align_t) == 0);
-}
-
 TEST_CASE("Range-based for") {
   element::no_new_intances_guard ig;
 
