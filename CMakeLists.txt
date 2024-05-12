@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(template)
+project(socow-vector)
 
 set(CMAKE_CXX_STANDARD 20)
 
@@ -19,7 +19,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
   endif()
   target_compile_definitions(tests PRIVATE -D_CRT_SECURE_NO_WARNINGS)
 else()
-  target_compile_options(tests PRIVATE -Wall -pedantic -Wextra)
+  target_compile_options(tests PRIVATE -Wall -Wextra)
   target_compile_options(tests PRIVATE -Wno-sign-compare -Wno-self-move)
   target_compile_options(tests PRIVATE -Wold-style-cast)
   target_compile_options(tests PRIVATE -Wextra-semi)

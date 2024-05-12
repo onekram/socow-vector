@@ -27,6 +27,8 @@ jobs:
     needs: formatting-check
     name: "Test (${{ matrix.toolchain.name }}, ${{ matrix.build_type }})"
 
+    timeout-minutes: 30
+
     strategy:
       fail-fast: false
       matrix:
