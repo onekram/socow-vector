@@ -259,7 +259,7 @@ TEST_CASE("Copy constructor") {
   }
 }
 
-TEST_CASE("Copy assigment operator") {
+TEST_CASE("Copy assignment operator") {
   element::no_new_intances_guard ig;
 
   static constexpr std::size_t N = 50, K = 10;
@@ -294,7 +294,7 @@ TEST_CASE("Move constructor") {
   assert_empty_storage(a);
 }
 
-TEST_CASE("Move assigment operator") {
+TEST_CASE("Move assignment operator") {
   element::no_new_intances_guard ig;
 
   static constexpr std::size_t N = 50;
