@@ -43,6 +43,7 @@ class socow_vector;
 - `insert(const_iterator pos, ...)` &mdash; вставить элемент перед `pos`;
 - `pop_back()` &mdash; удалить элемент из конца вектора;
 - `erase(const_iterator pos)` &mdash; удалить элемент по итератору;
+- `erase(const_iterator first, const_iterator last)` &mdash; удалить все элементы в диапазоне `[first, last)`;
 - `clear()` &mdash; очистить вектор от всех элементов;
 - `reserve(size_t new_capacity)` &mdash; установить вместимость вектора, если текущая меньше;
 - `shrink_to_fit()` &mdash; сжать вместимость вектора до текущего размера.
