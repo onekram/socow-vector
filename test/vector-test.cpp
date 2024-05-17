@@ -259,7 +259,7 @@ TEST_CASE("Copy constructor") {
   }
 }
 
-TEST_CASE("Copy assignment operator") {
+TEST_CASE("Copy assignment") {
   element::no_new_intances_guard ig;
 
   static constexpr std::size_t N = 50, K = 10;
@@ -294,7 +294,7 @@ TEST_CASE("Move constructor") {
   assert_empty_storage(a);
 }
 
-TEST_CASE("Move assignment operator") {
+TEST_CASE("Move assignment") {
   element::no_new_intances_guard ig;
 
   static constexpr std::size_t N = 50;
@@ -372,7 +372,32 @@ TEST_CASE("Insert") {
   }
 }
 
-TEST_CASE("Erase") {
+TEST_CASE("Erase single") {
+  element::no_new_intances_guard ig;
+
+  static constexpr std::size_t N = 50, POS = 10;
+
+  socow_vector<element, 3> a;
+  mass_push_back(a, N);
+  snapshot s(a);
+
+  auto it = a.erase(a.begin() + POS);
+  REQUIRE(it == a.begin() + POS);
+  REQUIRE(a.size() == N - 1);
+  REQUIRE(a.capacity() == s.capacity);
+  REQUIRE(a.data() == s.data);
+
+  for (size_t i = 0; i < POS; ++i) {
+    CAPTURE(i);
+    REQUIRE(a[i] == 2 * i + 1);
+  }
+  for (size_t i = POS; i < a.size(); ++i) {
+    CAPTURE(i);
+    REQUIRE(a[i] == 2 * (i + 1) + 1);
+  }
+}
+
+TEST_CASE("Erase range") {
   element::no_new_intances_guard ig;
 
   static constexpr std::size_t N = 50, K = 10;
