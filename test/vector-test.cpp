@@ -3,6 +3,8 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <utility>
+
 TEST_CASE("Default constructor") {
   element::no_new_intances_guard ig;
 
