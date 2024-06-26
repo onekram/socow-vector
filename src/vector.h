@@ -59,6 +59,18 @@ public:
   }
 
   // O(N) strong
+  template <typename Array>
+  vector (Array&& other, std::size_t new_size)
+      : _capacity(new_size)
+      , _size(new_size)
+      , _data(nullptr) {
+    if (_capacity > 0) {
+      auto tmp = create_tmp(std::move(other), other.size());
+      _data = tmp;
+    }
+  }
+
+  // O(N) strong
   vector& operator=(const vector& other) {
     if (this == &other) {
       return *this;
@@ -128,10 +140,16 @@ public:
 
   // O(1)* strong
   void push_back(const T& value) {
+    value_type v = value;
+    push_back(v);
+  }
+
+  // O(1)* strong
+  void push_back(T&& value) {
     if (_size == _capacity) {
-      auto tmp = create_tmp(*this, _capacity * 2 + 1);
+      auto tmp = create_tmp(std::move(*this), _capacity * 2 + 1);
       try {
-        new (tmp + size()) value_type(value);
+        new (tmp + size()) value_type(std::move(value));
       } catch (...) {
         data_clear(tmp, size());
         throw;
@@ -141,7 +159,7 @@ public:
       _capacity = _capacity * 2 + 1;
       ++_size;
     } else {
-      new (data() + size()) value_type(value);
+      new (data() + size()) value_type(std::move(value));
       ++_size;
     }
   }
@@ -213,9 +231,15 @@ public:
 
   // O(N) strong
   iterator insert(const_iterator pos, const T& value) {
+    value_type v = value;
+    return insert(pos, std::move(v));
+  }
+
+  // O(N) strong
+  iterator insert(const_iterator pos, T&& value) {
     size_t idx = pos - begin();
 
-    push_back(value);
+    push_back(std::move(value));
 
     iterator it = end() - 1;
     while (it != begin() + idx) {
@@ -271,12 +295,23 @@ private:
     auto tmp = static_cast<pointer>(operator new(sizeof(value_type) * new_capacity));
     size_t i = 0;
     try {
-      for (vector::const_iterator it = source.begin(); i < source.size() && i < new_capacity; ++i, ++it) {
+      for (auto it = source.begin(); it != source.end() && i < new_capacity; ++i, ++it) {
         new (tmp + i) value_type(*it);
       }
     } catch (...) {
       data_clear(tmp, i);
       throw;
+    }
+    return tmp;
+  }
+
+  // O(N) strong
+  template <typename Array>
+  static pointer create_tmp(Array&& source, size_t new_capacity) {
+    auto tmp = static_cast<pointer>(operator new(sizeof(value_type) * new_capacity));
+    size_t i = 0;
+    for (auto it = source.begin(); it != source.end() && i < new_capacity; ++i, ++it) {
+      new (tmp + i) value_type(std::move(*it));
     }
     return tmp;
   }

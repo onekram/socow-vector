@@ -1,12 +1,13 @@
 #pragma once
 
+#include "shared-data.h"
+#include "vector.h"
+
 #include <array>
 #include <cassert>
 #include <cstddef>
 #include <iterator>
 #include <memory>
-
-#include "vector.h"
 
 template <typename T, std::size_t SMALL_SIZE>
 class socow_vector {
@@ -23,25 +24,21 @@ public:
   using const_iterator = const_pointer;
 
 public:
-  socow_vector() : _size(0), _buffer(nullptr) {}
+  socow_vector()
+      : _size(0) {}
 
   // O(SMALL_SIZE) / O(1); strong / nothrow
   socow_vector(const socow_vector& other)
-      : _size(other.size()), _buffer(nullptr) {
-    if (other.is_small_object()) {
-      _data = other._data;
-//      std::copy(std::begin(other._data), std::end(other._data), std::begin(_data))
+      : _size(other.size()) {
+    if (other.small_object()) {
+      _data._static_data = other._data._static_data;
     } else {
-      _buffer = other._buffer;
+      _data._dynamic_data = other._data._dynamic_data;
     }
   }
 
-  socow_vector(socow_vector&& other) noexcept
-      : _size(other._size)
-      , _buffer(other._buffer) {
-
-    std::swap(_data, other._data);
-    other._buffer = nullptr;
+  socow_vector(socow_vector&& other) noexcept {
+      swap(other);
   }
 
   // O(SMALL_SIZE) / O(1); strong / nothrow
@@ -55,17 +52,12 @@ public:
 
   // ???
   ~socow_vector() {
-    if (is_small_object()) {
-      for(iterator it = begin(); it != end(); ++it) {
-        it->~value_type();
-      }
-    }
+    clear();
   }
-
   // Fields access
 
   std::size_t size() const {
-    return is_small_object() ? _size : _buffer->size();
+    return small_object() ? _size : _data._dynamic_data->size();
   }
 
   bool empty() const {
@@ -73,97 +65,114 @@ public:
   }
 
   std::size_t capacity() const {
-    return is_small_object() ? SMALL_SIZE : _buffer->capacity();
+    return small_object() ? SMALL_SIZE : _data._dynamic_data->capacity();
   }
 
   // O(1) / O(size); nothrow / strong
   pointer data() {
-    if (is_small_object()) {
-      return _data.data();
+    if (small_object()) {
+      return _data._static_data.data();
     } else {
-      if (_buffer.use_count() > 1) {
-        vector<T> vec = *_buffer;
-        _buffer = std::make_shared<vector<T>>(vec);
+      if (_data._dynamic_data.use_count() > 1) {
+        vector<T> vec = *_data._dynamic_data;
+        _data._dynamic_data = shared_data<vector<T>>(std::move(vec));
       }
-      return _buffer->data();
+      return _data._dynamic_data->data();
     }
   }
 
   // O(1) / O(1); nothrow / nothrow
   const_pointer data() const noexcept {
-    if (is_small_object()) {
-      return _data.data();
+    if (small_object()) {
+      return _data._static_data.data();
     } else {
-      return _buffer->data();
+      return _data._dynamic_data->data();
     }
   }
-
-  void destroy_small() {
-    for(std::size_t i = 0; i < SMALL_SIZE; ++i) {
-      _data[i].~value_type();
-    }
-  }
-
   // Operations
 
   // O(1) / O(1)*; nothrow / strong
   void push_back(const T& value) {
-    if (is_full()) {
-      vector<T> vec(_data, _size);
-//      destroy_small();
+    value_type v = value;
+    push_back(std::move(v));
+  }
+
+  // O(1) / O(1)*; nothrow / strong
+  void push_back(T&& value) {
+    if (full()) {
+      vector<T> vec(_data._static_data, _size);
+      std::destroy(begin(), end());
       ++_size;
-      vec.push_back(value);
-      _buffer = std::make_shared<vector<T>>(std::move(vec));
-    } else if (is_small_object()) {
-      _data[_size++] = value;
+      vec.push_back(std::move(value));
+      _data._dynamic_data._data = nullptr;
+      _data._dynamic_data._count = nullptr;
+      _data._dynamic_data = shared_data<vector<T>>(std::move(vec));
+    } else if (small_object()) {
+      new (_data._static_data.data() + _size) T(std::move(value));
+      ++_size;
     } else {
-      if (_buffer.use_count() > 1) {
-        vector<T> vec = *_buffer;
-        _buffer = std::make_shared<vector<T>>(vec);
+      if (_data._dynamic_data.use_count() > 1) {
+        vector<T> vec = *_data._dynamic_data;
+        _data._dynamic_data = shared_data<vector<T>>(std::move(vec));
       }
-      _buffer->push_back(value);
+      _data._dynamic_data->push_back(std::move(value));
     }
   }
 
+
   // 0(SMALL_SIZE) / 0(size); strong / strong
   void reserve(std::size_t new_capacity) {
-    if (is_small_object() && _size + new_capacity > SMALL_SIZE) {
-      vector<T> vec(_data, _size);
-      _buffer = std::make_shared<vector<T>>(vec);
-      _buffer->reserve(new_capacity);
-    } else if (!is_small_object()) {
-      if (_buffer.use_count() > 1) {
-        vector<T> vec = *_buffer;
-        _buffer = std::make_shared<vector<T>>(vec);
+    if (small_object() && size() + new_capacity > SMALL_SIZE) {
+      vector<T> vec(_data._static_data, size());
+      _data._dynamic_data = shared_data<vector<T>>(std::move(vec));
+      _data._dynamic_data->reserve(new_capacity);
+      _size = SMALL_SIZE + 1;
+    } else if (!small_object()) {
+      if (_data._dynamic_data.use_count() > 1) {
+        vector<T> vec = *_data._dynamic_data;
+        _data._dynamic_data = shared_data<vector<T>>(std::move(vec));
       }
-      _buffer->reserve(new_capacity);
+      _data._dynamic_data->reserve(new_capacity);
     }
   }
 
   // 0(1) / 0(size); nothrow / strong
   void shrink_to_fit() {
-    if (!is_small_object()) {
-      _buffer->shrink_to_fit();
+    if (!small_object()) {
+      _data._dynamic_data->shrink_to_fit();
     }
   }
 
   // O(1) / 0(N); nothrow / nothrow
   void clear() noexcept {
-    if (!is_small_object()) {
-      if (_buffer.use_count() > 1) {
-        vector<T> vec = *_buffer;
-        _buffer = std::make_shared<vector<T>>(vec);
+    if (small_object()) {
+      std::destroy(begin(), end());
+      _size = 0;
+    } else {
+      if (_data._dynamic_data.use_count() > 1) {
+        vector<T> vec = *_data._dynamic_data;
+        _data._dynamic_data = shared_data<vector<T>>(std::move(vec));
       }
-      _buffer->clear();
+      _data._dynamic_data->clear();
     }
-    _size = 0;
   }
 
   // O(1) nothrow
   void swap(socow_vector& other) noexcept {
-    std::swap(_size, other._size);
-    std::swap(_buffer, other._buffer);
-    std::swap(_data, other._data);
+    using std::swap;
+    if (small_object() && other.small_object()) {
+      swap(_data._static_data, other._data._static_data);
+    } else {
+      if (small_object()) {
+        vector<T> vec(_data._static_data, _size);
+        _data._dynamic_data = shared_data<vector<T>>(std::move(vec));
+      } else if (other.small_object()) {
+        vector<T> vec(other._data._static_data, other._size);
+        other._data._dynamic_data = shared_data<vector<T>>(std::move(vec));
+      }
+      swap(_data._dynamic_data, other._data._dynamic_data);
+    }
+    swap(_size, other._size);
   }
 
   // Element access
@@ -171,24 +180,24 @@ public:
   // O(1) / O(size); nothrow / strong
   reference operator[](std::size_t index) {
     assert(index < size());
-    if (is_small_object()) {
-      return _data[index];
+    if (small_object()) {
+      return _data._static_data[index];
     } else {
-      if (_buffer.use_count() > 1) {
-        vector<T> vec = *_buffer;
-        _buffer = std::make_shared<vector<T>>(vec);
+      if (_data._dynamic_data.use_count() > 1) {
+        vector<T> vec = *_data._dynamic_data;
+        _data._dynamic_data = shared_data<vector<T>>(std::move(vec));
       }
-      return (*_buffer)[index];
+      return (*_data._dynamic_data)[index];
     }
   }
 
   // O(1) / O(1); nothrow / nothrow
   const_reference operator[](std::size_t index) const noexcept {
     assert(index < size());
-    if (is_small_object()) {
-      return _data[index];
+    if (small_object()) {
+      return _data._static_data[index];
     } else {
-      return (*_buffer)[index];
+      return (*_data._dynamic_data)[index];
     }
   }
 
@@ -216,65 +225,69 @@ public:
 
   // O(1) / O(size); nothrow / strong
   iterator begin() {
-    if (is_small_object()) {
-      return _data.begin();
+    if (small_object()) {
+      return _data._static_data.begin();
     } else {
-      if (_buffer.use_count() > 1) {
-        vector<T> vec = *_buffer;
-        _buffer = std::make_shared<vector<T>>(vec);
+      if (_data._dynamic_data.use_count() > 1) {
+        vector<T> vec = *_data._dynamic_data;
+        _data._dynamic_data = shared_data<vector<T>>(std::move(vec));
       }
-      return _buffer->begin();
+      return _data._dynamic_data->begin();
     }
   }
 
   // O(1) / O(1); nothrow / nothrow
   const_iterator begin() const noexcept {
-    if (is_small_object()) {
-      return _data.begin();
+    if (small_object()) {
+      return _data._static_data.begin();
     } else {
-      return _buffer->begin();
+      return _data._dynamic_data->begin();
     }
   }
 
   // O(1) / O(size); nothrow / strong
   iterator end() {
-    if (is_small_object()) {
-      iterator begin = _data.begin();
+    if (small_object()) {
+      iterator begin = _data._static_data.begin();
       std::advance(begin, _size);
       return begin;
     } else {
-      if (_buffer.use_count() > 1) {
-        vector<T> vec = *_buffer;
-        _buffer = std::make_shared<vector<T>>(vec);
+      if (_data._dynamic_data.use_count() > 1) {
+        vector<T> vec = *_data._dynamic_data;
+        _data._dynamic_data = shared_data<vector<T>>(std::move(vec));
       }
-      return _buffer->end();
+      return _data._dynamic_data->end();
     }
   }
 
   // O(1) / O(1); nothrow / nothrow
   const_iterator end() const noexcept {
-    if (is_small_object()) {
-      const_iterator begin = _data.begin();
+    if (small_object()) {
+      const_iterator begin = _data._static_data.begin();
       std::advance(begin, _size);
       return begin;
     } else {
-      return _buffer->end();
+      return _data._dynamic_data->end();
     }
   }
 
 public:
   std::size_t _size;
 
-  union {
-    std::shared_ptr<vector<T>> _buffer;
-    std::array<T, SMALL_SIZE> _data;
-//    T _data[SMALL_SIZE];
-  };
+  union small_data {
+    small_data() {}
+    ~small_data() {}
 
-  bool is_small_object() const {
+    shared_data<vector<T>> _dynamic_data;
+    std::array<T, SMALL_SIZE> _static_data;
+  };
+  
+  small_data _data;
+
+  bool small_object() const {
     return _size <= SMALL_SIZE;
   }
-  bool is_full() const {
+  bool full() const {
     return _size == SMALL_SIZE;
   }
 };
