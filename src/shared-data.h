@@ -12,6 +12,7 @@ public:
 
   template <typename U, std::size_t SMALL_SIZE>
   friend class socow_vector;
+
 public:
   shared_data()
       : _data(nullptr)
@@ -23,7 +24,7 @@ public:
     ++*_count;
   }
 
-  shared_data& operator=(const shared_data& other) {
+  shared_data& operator=(const shared_data& other) noexcept {
     if (this != &other) {
       shared_data copy(other);
       swap(*this, copy);

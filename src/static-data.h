@@ -16,4 +16,5 @@ public:
   using iterator = pointer;
   using const_iterator = const_pointer;
 
+public:
 };

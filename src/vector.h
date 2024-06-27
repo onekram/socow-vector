@@ -48,7 +48,7 @@ public:
 
   // O(N) strong
   template <typename Array>
-  vector (const Array& other, std::size_t new_capacity)
+  vector(const Array& other, std::size_t new_capacity)
       : _capacity(other.size())
       , _size(other.size())
       , _data(nullptr) {
@@ -60,12 +60,12 @@ public:
 
   // O(N) strong
   template <typename Array>
-  vector (Array&& other, std::size_t new_size)
+  vector(Array&& other, std::size_t new_size)
       : _capacity(new_size)
       , _size(new_size)
       , _data(nullptr) {
     if (_capacity > 0) {
-      auto tmp = create_tmp(std::move(other), other.size());
+      auto tmp = create_tmp(std::forward<Array>(other), other.size());
       _data = tmp;
     }
   }
@@ -257,11 +257,11 @@ public:
   // O(N) nothrow(swap)
   iterator erase(const_iterator first, const_iterator last) noexcept {
     if (first == last) {
-      return iterator(last);
+      return begin() + (last - begin());
     }
     size_t idx = first - begin();
-    iterator left = iterator(first);
-    iterator right = iterator(last);
+    iterator left = begin() + (first - begin());
+    iterator right = begin() + (last - begin());
 
     while (right != end()) {
       std::iter_swap(left, right);
