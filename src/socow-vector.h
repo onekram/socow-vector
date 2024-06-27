@@ -199,6 +199,8 @@ public:
   void reserve(std::size_t new_capacity) {
     if (small_object() && size() + new_capacity > SMALL_SIZE) {
       vector<T> vec(_static_data, size());
+      _dynamic_data._data = nullptr;
+      _dynamic_data._count = nullptr;
       _dynamic_data = shared_data<vector<T>>(std::move(vec));
       _dynamic_data->reserve(new_capacity);
       _size = SMALL_SIZE + 1;
