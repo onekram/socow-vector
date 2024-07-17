@@ -357,12 +357,12 @@ public:
 
   // O(SMALL_SIZE) / 0(1); strong / nothrow
   void change_storage() {
-      vector<T> vec(_static_data, _size);
-      std::destroy(begin(), end());
-      _size = SMALL_SIZE + 1;
-      _dynamic_data._data = nullptr;
-      _dynamic_data._count = nullptr;
-      _dynamic_data = shared_data<vector<T>>(std::move(vec));
+    vector<T> vec(_static_data, _size);
+    std::destroy(begin(), end());
+    _size = SMALL_SIZE + 1;
+    _dynamic_data._data = nullptr;
+    _dynamic_data._count = nullptr;
+    _dynamic_data = shared_data<vector<T>>(std::move(vec));
   }
 
   // O(1) / 0(size); nothrow / strong
