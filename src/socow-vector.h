@@ -29,7 +29,7 @@ public:
 
   // O(SMALL_SIZE) / O(1); strong / nothrow
   socow_vector(const socow_vector& other)
-      : _size(other.size()) {
+      : _size(other._size) {
     if (other.small_object()) {
       for (std::size_t i = 0; i != other.size(); ++i) {
         new (_static_data.data() + i) value_type(other[i]);
@@ -122,7 +122,9 @@ public:
       new (_static_data.data() + _size) value_type(std::move(value));
       ++_size;
     } else {
-      change_storage();
+      if (full()) {
+        change_storage();
+      }
       unpin();
       _dynamic_data->push_back(std::move(value));
     }
@@ -158,7 +160,9 @@ public:
       }
       return begin() + idx;
     }
-    change_storage();
+    if (full()) {
+      change_storage();
+    }
     unpin();
     return _dynamic_data->insert(begin() + idx, std::move(value));
   }
@@ -239,10 +243,10 @@ public:
       swap(_static_data, other._static_data);
     } else {
       if (small_object()) {
-        _dynamic_data = shared_data<vector<T>>(_static_data, _size);
+        change_storage();
       }
       if (other.small_object()) {
-        other._dynamic_data = shared_data<vector<T>>(other._static_data, other._size);
+        other.change_storage();
       }
       swap(_dynamic_data, other._dynamic_data);
     }
@@ -353,14 +357,12 @@ public:
 
   // O(SMALL_SIZE) / 0(1); strong / nothrow
   void change_storage() {
-    if (full()) {
       vector<T> vec(_static_data, _size);
       std::destroy(begin(), end());
       _size = SMALL_SIZE + 1;
       _dynamic_data._data = nullptr;
       _dynamic_data._count = nullptr;
       _dynamic_data = shared_data<vector<T>>(std::move(vec));
-    }
   }
 
   // O(1) / 0(size); nothrow / strong
