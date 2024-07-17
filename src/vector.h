@@ -65,7 +65,7 @@ public:
       , _size(new_size)
       , _data(nullptr) {
     if (_capacity > 0) {
-      auto tmp = create_tmp(std::forward<Array>(other), other.size());
+      auto tmp = create_tmp(std::forward<Array>(other), new_size);
       _data = tmp;
     }
   }
