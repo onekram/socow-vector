@@ -31,8 +31,8 @@ public:
   socow_vector(const socow_vector& other)
       : _size(other._size) {
     if (other.small_object()) {
-      for (std::size_t i = 0; i != other.size(); ++i) {
-        new (_static_data.data() + i) value_type(other[i]);
+      for (std::size_t i = 0; i != other._size; ++i) {
+        new (_static_data.data() + i) value_type(other._static_data[i]);
       }
     } else {
       _dynamic_data._data = nullptr;
@@ -248,7 +248,19 @@ public:
   void swap(socow_vector& other) noexcept {
     using std::swap;
     if (small_object() && other.small_object()) {
-      swap(_static_data, other._static_data);
+      std::size_t i = std::min(_size, other._size);
+      std::swap_ranges(_static_data.begin(), _static_data.begin() + i, other._static_data.begin());
+      if (other._size > _size) {
+        for (; i != other._size; ++i) {
+          new (_static_data.data() + i) value_type(std::move(other._static_data[i]));
+          other._static_data[i].~value_type();
+        }
+      } else {
+        for (; i != _size; ++i) {
+          new (other._static_data.data() + i) value_type(std::move(_static_data[i]));
+          _static_data[i].~value_type();
+        }
+      }
     } else {
       if (small_object()) {
         change_storage();
