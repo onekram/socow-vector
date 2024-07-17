@@ -261,14 +261,30 @@ public:
           _static_data[i].~value_type();
         }
       }
-    } else {
-      if (small_object()) {
-        change_storage();
-      }
-      if (other.small_object()) {
-        other.change_storage();
-      }
+    } else if (!small_object() && !other.small_object()) {
       swap(_dynamic_data, other._dynamic_data);
+    } else {
+      if (small_object() && !other.small_object()) {
+        shared_data<vector<T>> buffer = other._dynamic_data;
+        other._dynamic_data.~shared_data<vector<T>>();
+        for (std::size_t i = 0; i != _size; ++i) {
+          new (other._static_data.data() + i) value_type(std::move(_static_data[i]));
+          _static_data[i].~value_type();
+        }
+        _dynamic_data._data = nullptr;
+        _dynamic_data._count = nullptr;
+        _dynamic_data = buffer;
+      } else {
+        shared_data<vector<T>> buffer = _dynamic_data;
+        _dynamic_data.~shared_data<vector<T>>();
+        for (std::size_t i = 0; i != other._size; ++i) {
+          new (_static_data.data() + i) value_type(std::move(other._static_data[i]));
+          other._static_data[i].~value_type();
+        }
+        other._dynamic_data._data = nullptr;
+        other._dynamic_data._count = nullptr;
+        other._dynamic_data = buffer;
+      }
     }
     swap(_size, other._size);
   }
