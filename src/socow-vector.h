@@ -63,6 +63,14 @@ public:
     return *this;
   }
 
+  // O(SMALL_SIZE) / O(1); nothrow / nothrow
+  socow_vector& operator=(socow_vector&& other) noexcept {
+    if (this != &other) {
+      swap(other);
+    }
+    return *this;
+  }
+
   // ???
   ~socow_vector() {
     if (small_object()) {
